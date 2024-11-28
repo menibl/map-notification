@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GIS Points on Google Maps</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBSpxbqDl2kMFweDXJtTiZ7ROThPlB-dfM"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        #map { height: 100vh; width: 100%; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+        let map;
+        const socket = io();
+        const circles = {};
+
+        // Initialize Google Map
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 0, lng: 0 },
+                zoom: 2
+            });
+
+            fetchPoints(); // Load initial points
+        }
+
+        // Fetch all points from the server
+        async function fetchPoints() {
+            const response = await fetch('/points');
+            const points = await response.json();
+            updateMap(points);
+        }
+
+        // Update map with points
+        function updateMap(points) {
+            // Clear existing circles
+            for (const id in circles) {
+                circles[id].setMap(null);
+                delete circles[id];
+            }
+
+            // Draw new circles
+            points.forEach(({ id, lat, lng, radius }) => {
+                const circle = new google.maps.Circle({
+                    map,
+                    center: { lat, lng },
+                    radius: radius,
+                    fillColor: '#FF0000',
+                    strokeColor: '#FF0000',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 2,
+                    fillOpacity: 0.35
+                });
+                circles[id] = circle;
+            });
+        }
+
+        // Listen for real-time updates
+        socket.on('update', updateMap);
+
+        // Initialize map on load
+        window.onload = initMap;
+    </script>
+</body>
+</html>

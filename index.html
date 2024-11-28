@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GIS Points on Google Maps</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBSpxbqDl2kMFweDXJtTiZ7ROThPlB-dfM"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        #map { height: 70vh; width: 100%; }
+        #points-list { height: 30vh; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="points-list">
+        <h3>Points List</h3>
+        <ul id="points-ul"></ul>
+    </div>
+
+    <script>
+        let map;
+        let markers = {};
+
+        const redHandIcon = {
+            url: '/images/red-alert.png',
+            scaledSize: new google.maps.Size(40, 40)
+        };
+
+        // Fetch initial map settings from the server
+        async function getInitialMapSettings() {
+            const response = await fetch('/map-settings');
+            const settings = await response.json();
+            return settings;
+        }
+
+        // Initialize the map with dynamic center and zoom
+        async function initMap() {
+            const settings = await getInitialMapSettings();
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: settings.center,
+                zoom: settings.zoom
+            });
+            fetchPoints();
+        }
+
+        async function fetchPoints() {
+            const response = await fetch('/points');
+            const points = await response.json();
+            updateMap(points);
+            displayPoints(points);
+        }
+
+        function addPoint(id, lat, lng, labelText) {
+            if (markers[id]) return;
+            const marker = new google.maps.Marker({
+                position: { lat, lng },
+                map: map,
+                icon: redHandIcon,
+                label: { text: labelText, color: 'black', fontSize: '14px', fontWeight: 'bold' }
+            });
+            markers[id] = marker;
+        }
+
+        function updateMap(points) {
+            points.forEach(({ id, lat, lng, label }) => {
+                addPoint(id, lat, lng, label);
+            });
+        }
+
+        function displayPoints(points) {
+            const pointsList = document.getElementById('points-ul');
+            pointsList.innerHTML = '';
+            points.forEach(({ id, lat, lng, label }) => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `ID: ${id}, Lat: ${lat}, Lng: ${lng}, Label: ${label}`;
+                pointsList.appendChild(listItem);
+            });
+        }
+
+        const socket = io();
+        socket.on('updatePoints', (points) => {
+            updateMap(points);
+            displayPoints(points);
+        });
+
+        window.onload = initMap;
+    </script>
+</body>
+</html>
